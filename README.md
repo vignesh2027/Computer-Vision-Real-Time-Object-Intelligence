@@ -239,7 +239,3 @@ GPU speeds are 5–10× higher. Swap via `--model yolov8s` or `YOLO_MODEL=yolov8
 | Container | [Docker](https://docker.com) |
 
 ---
-
-## License
-
-MIT — free to use, modify, and distribute.
