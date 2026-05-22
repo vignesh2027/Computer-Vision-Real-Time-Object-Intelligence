@@ -11,6 +11,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import os
 import subprocess
 import sys
 import time
@@ -21,6 +22,7 @@ import cv2
 
 from cv_pipeline.analytics.counter import LineCounter, ZoneCounter
 from cv_pipeline.analytics.heatmap import HeatmapGenerator
+from cv_pipeline.analytics.speed import SpeedEstimator
 from cv_pipeline.detector.yolo_detector import get_detector
 from cv_pipeline.stream.video_source import VideoSource
 from cv_pipeline.tracker.bytetrack import ObjectTracker
@@ -54,6 +56,7 @@ def run_pipeline(args: argparse.Namespace):
 
     heatmap_gen = HeatmapGenerator((h, w))
     line_counter = LineCounter((0, h // 2), (w, h // 2))
+    speed_est = SpeedEstimator(pixels_per_meter=float(os.getenv("PIXELS_PER_METER", "50")), fps=fps)
 
     writer = None
     if args.record:
@@ -76,7 +79,9 @@ def run_pipeline(args: argparse.Namespace):
             annotated = frame.copy()
             if args.heatmap:
                 annotated = heatmap_gen.overlay(annotated)
+            speeds = speed_est.update(tracked)
             annotated = annotator.draw_detections(annotated, tracked)
+            annotated = annotator.draw_speed(annotated, tracked, speeds)
             annotated = annotator.draw_line(annotated, (0, h // 2), (w, h // 2), in_c, out_c)
 
             elapsed = time.monotonic() - t0

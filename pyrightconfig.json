@@ -1,0 +1,12 @@
+{
+  "pythonVersion": "3.11",
+  "venvPath": ".",
+  "venv": ".venv",
+  "pythonPlatform": "Darwin",
+  "extraPaths": [
+    ".venv/lib/python3.14/site-packages",
+    "."
+  ],
+  "include": ["cv_pipeline", "tests", "main.py"],
+  "exclude": [".venv"]
+}

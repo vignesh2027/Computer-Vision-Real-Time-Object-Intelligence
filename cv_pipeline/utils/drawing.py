@@ -104,6 +104,23 @@ class Annotator:
             cv2.putText(out, label, (cx - 30, cy), self.font, 0.65, WARM_WHITE, 2, cv2.LINE_AA)
         return out
 
+    def draw_speed(
+        self,
+        frame: np.ndarray,
+        detections: List[Detection],
+        speeds: Dict[int, float],
+    ) -> np.ndarray:
+        out = frame.copy()
+        for det in detections:
+            if det.track_id is None:
+                continue
+            kmh = speeds.get(det.track_id, 0.0)
+            if kmh < 0.5:
+                continue
+            x1, y1 = int(det.bbox[0]), int(det.bbox[3])
+            cv2.putText(out, f"{kmh:.1f} km/h", (x1, y1 + 16), self.font, 0.5, ACCENT_GREEN, 1, cv2.LINE_AA)
+        return out
+
     def draw_stats(
         self,
         frame: np.ndarray,

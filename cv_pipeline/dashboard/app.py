@@ -153,8 +153,11 @@ if stop_btn:
 
 # --- Main processing loop ---
 if st.session_state.running:
+    import os, tempfile
+    import plotly.graph_objects as go
     from cv_pipeline.analytics.counter import LineCounter, ZoneCounter
     from cv_pipeline.analytics.heatmap import HeatmapGenerator
+    from cv_pipeline.analytics.speed import SpeedEstimator
     from cv_pipeline.detector.yolo_detector import get_detector
     from cv_pipeline.stream.video_source import VideoSource
     from cv_pipeline.tracker.bytetrack import ObjectTracker
@@ -166,33 +169,41 @@ if st.session_state.running:
 
     src = source if source_type != "File" else None
     if source_type == "File" and uploaded:
-        import tempfile, os
         tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".mp4")
         tmp.write(uploaded.read())
         tmp.close()
         src = tmp.name
 
     if src is None:
-        st.error("Please provide a valid source.")
+        st.error("Please provide a valid video source.")
+        st.session_state.running = False
         st.stop()
 
-    video_src = VideoSource.from_string(str(src))
-    video_src.open()
+    try:
+        video_src = VideoSource.from_string(str(src))
+        video_src.open()
+    except RuntimeError as e:
+        st.error(f"Cannot open source: {e}")
+        st.session_state.running = False
+        st.stop()
+
     w, h = video_src.frame_size
 
     heatmap_gen = HeatmapGenerator((h, w))
     lx1, ly1, lx2, ly2 = 0, h // 2, w, h // 2
     line_counter = LineCounter((lx1, ly1), (lx2, ly2))
+    speed_est = SpeedEstimator(
+        pixels_per_meter=float(os.getenv("PIXELS_PER_METER", "50")),
+        fps=video_src.fps,
+    )
 
-    writer: Optional[cv2.VideoWriter] = None
+    writer = None
     if record:
         fourcc = cv2.VideoWriter_fourcc(*"mp4v")
         writer = cv2.VideoWriter(out_path, fourcc, video_src.fps, (w, h))
 
     det_timeline: deque = deque(maxlen=120)
     fps_hist: deque = deque(maxlen=30)
-    import plotly.graph_objects as go
-    import pandas as pd
 
     try:
         for frame in video_src.frames():
@@ -205,11 +216,13 @@ if st.session_state.running:
 
             heatmap_gen.update(tracked)
             in_c, out_c = line_counter.update(tracked)
+            speeds = speed_est.update(tracked)
 
             annotated = frame.copy()
             if show_heatmap:
                 annotated = heatmap_gen.overlay(annotated)
             annotated = annotator.draw_detections(annotated, tracked)
+            annotated = annotator.draw_speed(annotated, tracked, speeds)
             if show_line:
                 annotated = annotator.draw_line(annotated, (lx1, ly1), (lx2, ly2), in_c, out_c)
 

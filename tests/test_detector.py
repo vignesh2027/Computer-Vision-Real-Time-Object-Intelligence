@@ -9,11 +9,18 @@ import pytest
 from cv_pipeline.detector.yolo_detector import Detection, YOLODetector, get_detector
 
 
+def _tensor_mock(value):
+    """Return a MagicMock that behaves like a PyTorch tensor: .cpu().numpy() -> value."""
+    t = MagicMock()
+    t.cpu.return_value.numpy.return_value = value
+    return t
+
+
 def _make_mock_model(class_id: int = 0, class_name: str = "person", conf: float = 0.85):
     box = MagicMock()
-    box.xyxy = [np.array([10.0, 20.0, 100.0, 200.0])]
-    box.conf = [np.array(conf)]
-    box.cls = [np.array(class_id)]
+    box.xyxy = [_tensor_mock(np.array([10.0, 20.0, 100.0, 200.0]))]
+    box.conf = [_tensor_mock(np.array(conf))]
+    box.cls  = [_tensor_mock(np.array(class_id))]
 
     result = MagicMock()
     result.boxes = [box]
@@ -57,8 +64,8 @@ class TestYOLODetector:
         assert "person" in detector.class_names
 
     def test_get_detector_factory(self):
-        with patch("cv_pipeline.detector.yolo_detector.YOLO") as MockYOLO:
-            MockYOLO.return_value = _make_mock_model()
+        # YOLO is imported lazily inside _ensure_model, so patch at the source
+        with patch("ultralytics.YOLO", return_value=_make_mock_model()):
             det = get_detector("yolov8n", confidence=0.5)
             assert isinstance(det, YOLODetector)
             assert det.confidence == 0.5
